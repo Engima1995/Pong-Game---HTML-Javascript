@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<style>
+
+canvas {
+  padding: 0;
+  margin: auto;
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border:1px solid #d3d3d3;
+  background-color: grey;
+}
+
+button {
+  position: absolute;
+  top: 30%;
+  bottom: 0;
+  left: 42.5%;
+  right: 0;
+  width: 200px;
+  height: 50px;
+  font-size: 24px;
+  background-color: green;
+  color: white;
+}
+
+button:hover {
+  background-color: white;
+  color: green;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<canvas id="canvas"></canvas>
+
+<script>
+
+//Refresh frame
+let interval = setInterval(main);
+
+//Dimensions for game size
+let HEIGHT = 500;
+let WIDTH = 1000;
+
+//Speed
+let SPEED = 3;
+
+//Canvas
+let canvas = document.getElementById("canvas");
+
+//Different components
+let playerPaddle = new component(10, 200, 10, 100, "player");
+let player2Paddle = new component(980, 200, 10, 100, "player2");
+let ball = new component(500, 240, 0, 0, "ball", "white");
+let playerScore = new component(10, 40, "30px", "Consolas", "text", "blue");
+let player2Score = new component(800, 40, "30px", "Consolas", "text", "red");
+let draw = new component(425, 40, "30px", "Consolas", "text", "white");
+
+//Button for refresh when game ends
+let button = document.createElement("button");
+let body = document.getElementsByTagName("body")[0];
+button.innerHTML = "Restart";
+
+//Construction of the Game Canvas
+let gameCanvas = {
+  start : function() {
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+    this.ctx = canvas.getContext("2d");
+    window.addEventListener('keydown', function (e) {
+        gameCanvas.key = e.keyCode;
+    })
+    window.addEventListener('keyup', function (e) {
+        gameCanvas.key = false;
+    })
+  },
+  clear : function() {
+      this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+//Construction of the Components
+function component(x, y, width, height, type, color) {
+  this.x = x;
+  this.y = y;
+  this.width = width;
+  this.height = height;
+  this.type = type;
+  this.speedX = SPEED;
+  this.speedY = 0;
+  this.score = 0;
+  this.update = function() {
+      ctx = canvas.getContext("2d");
+      if (this.type == "player") {
+          ctx.font = this.width + " " + this.height;
+          ctx.fillStyle = "blue";
+          ctx.fillRect(this.x, this.y, this.width, this.height);
+      } else if(this.type == "player2") {
+          ctx.fillStyle = "red";
+          ctx.fillRect(this.x, this.y, this.width, this.height);
+      } else if (this.type == "ball") {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 10, 0, 2 * Math.PI, false);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+      }else if(this.type == "text") {
+        ctx.font = this.width + " " + this.height;
+        ctx.fillStyle = color;
+        ctx.fillText(this.text, this.x, this.y);
+      }
+  }
+  this.newPos = function() {
+      this.x += this.speedX;
+      this.y += this.speedY;
+  }
+  this.crashWith = function(otherobj) {
+      let myleft = this.x;
+      let myright = this.x + (this.width);
+      let mytop = this.y;
+      let mybottom = this.y + (this.height);
+      let otherleft = otherobj.x - 10;
+      let otherright = otherobj.x + (otherobj.width + 10);
+      let othertop = otherobj.y;
+      let otherbottom = otherobj.y + (otherobj.height);
+      let crash = true;
+      if ((mybottom < othertop) ||
+             (mytop > otherbottom) ||
+             (myright < otherleft) ||
+             (myleft > otherright)) {
+         crash = false;
+      }
+      return crash;
+  }
+  this.bounce = function(otherObject) {
+
+    var currHeight = this.y - otherObject.y;
+
+    if(0 <= currHeight && currHeight <= ((otherObject.height/2)/2)) {
+      if(otherObject.type == "player") {
+        this.speedX = SPEED;
+        this.speedY = -SPEED;
+      }else {
+        this.speedX = -SPEED;
+        this.speedY = -SPEED;
+      }
+    }else if(((otherObject.height/2)/2) <= currHeight && currHeight <= (otherObject.height/2)) {
+      if(otherObject.type == "player") {
+        this.speedX = SPEED;
+        this.speedY = -SPEED;
+      }else {
+        this.speedX = -SPEED;
+        this.speedY = -SPEED;
+      }
+    }else if(((otherObject.height/2) - 15) <= currHeight && currHeight <= ((((otherObject.height/2)/2) + (otherObject.height/2)) + 15)) {
+      if(otherObject.type == "player") {
+        this.speedX = SPEED;
+      }else {
+        this.speedX = -SPEED;
+      }
+    }else if((otherObject.height/2) <= currHeight && currHeight <= ((otherObject.height/2)/2) + (otherObject.height/2)) {
+      if(otherObject.type == "player") {
+        this.speedX = SPEED;
+        this.speedY = SPEED;
+      }else {
+        this.speedX = -SPEED;
+        this.speedY = SPEED;
+      }
+    }else if(((otherObject.height/2)/2) + (otherObject.height/2) <= currHeight && currHeight <= HEIGHT) {
+      if(otherObject.type == "player") {
+        this.speedX = SPEED;
+        this.speedY = SPEED;
+      }else {
+        this.speedX = -SPEED;
+        this.speedY = SPEED;
+      }
+    }
+
+  }
+}
+
+//Initialises all settings before game starts
+function initialise() {
+  gameCanvas.start();
+  playerPaddle.update();
+  player2Paddle.update();
+  ball.update();
+}
+
+//The game is run from here
+function main() {
+
+  initialise();
+
+  ball.newPos();
+
+  playerPaddle.speedX = 0;
+  playerPaddle.speedY = 0;
+  playerPaddle.newPos();
+
+  player2Paddle.speedX = 0;
+  player2Paddle.speedY = 0;
+  player2Paddle.newPos();
+
+  playerScore.text = "Player 1: " + playerPaddle.score;
+  player2Score.text = "Player 2: " + player2Paddle.score;
+  playerScore.update();
+  player2Score.update();
+
+  //player1 Controller using up and down arrow keys
+  if (gameCanvas.key && gameCanvas.key == 38) {
+    player2Paddle.speedY = -SPEED;
+    player2Paddle.newPos();
+  }
+  if (gameCanvas.key && gameCanvas.key == 40) {
+    player2Paddle.speedY = SPEED;
+    player2Paddle.newPos();
+  }
+
+  //player2 Controller using W and S to move up and down
+  if (gameCanvas.key && gameCanvas.key == 87) {
+    playerPaddle.speedY = -SPEED;
+    playerPaddle.newPos();
+  }
+  if (gameCanvas.key && gameCanvas.key == 83) {
+    playerPaddle.speedY = SPEED;
+    playerPaddle.newPos();
+  }
+
+  if(0 > ball.y || ball.y > (HEIGHT)) {
+    let offset = ball.speedY < 0 ? 0 - ball.y : (HEIGHT) - ball.y;
+    ball.speedY = offset;
+  }
+
+  if(ball.x > (WIDTH-10) || ball.x < 10) {
+
+    clearInterval(interval);
+
+    if(playerPaddle.score > player2Paddle.score) {
+
+      gameCanvas.clear();
+      playerScore.text = "Player 1 Wins !";
+      playerScore.x = 425;
+      playerScore.update();
+
+      body.appendChild(button);
+      button.addEventListener ("click", function() {
+        window.location.reload();
+      });
+
+    }else if(player2Paddle.score > playerPaddle.score) {
+
+      gameCanvas.clear();
+      player2Score.text = "Player 2 Wins !";
+      player2Score.x = 425;
+      player2Score.update();
+
+      body.appendChild(button);
+      button.addEventListener ("click", function() {
+        window.location.reload();
+      });
+
+    }else {
+
+      gameCanvas.clear();
+      draw.text = "It's a Draw";
+      draw.update();
+
+      body.appendChild(button);
+      button.addEventListener ("click", function() {
+        window.location.reload();
+      });
+
+    }
+    return;
+  }
+
+  if(ball.crashWith(playerPaddle)) {
+    ball.bounce(playerPaddle);
+    playerPaddle.score += 1;
+    playerScore.text = "Player 1: " + playerPaddle.score;
+  }else if(ball.crashWith(player2Paddle)) {
+    ball.bounce(player2Paddle);
+    player2Paddle.score += 1;
+    player2Score.text = "Player 2: " + player2Paddle.score;
+  }else {
+    playerPaddle.score += 0;
+    playerScore.text = "Player 1: " + playerPaddle.score;
+    player2Paddle.score += 0;
+    player2Score.text = "Player 2: " + player2Paddle.score;
+  }
+
+}
+
+//Starts the game
+main();
+
+</script>
+
+</body>
+
+</html>
